@@ -1,10 +1,11 @@
 #!/bin/ruby
 require "nokogiri"
 require 'pathname'
+require 'optparse'
 
-def fix_item_in_hash (hash, key, arabic)
+def fix_item_in_hash (hash, key, rtl)
 
-  if arabic
+  if rtl
 
     if hash[key].value == "leading"
       hash[key].value = "right"
@@ -27,21 +28,23 @@ def fix_item_in_hash (hash, key, arabic)
 
 end
 
-def fix_attributes (hash, arabic)
-  fix_item_in_hash(hash, "firstAttribute", arabic)
-  fix_item_in_hash(hash, "secondAttribute", arabic)
+def fix_attributes (hash, rtl)
+  fix_item_in_hash(hash, "firstAttribute", rtl)
+  fix_item_in_hash(hash, "secondAttribute", rtl)
 
-  hash["firstItem"].value, hash["secondItem"].value = hash["secondItem"].value,hash["firstItem"].value if arabic
-  hash["firstAttribute"].value, hash["secondAttribute"].value = hash["secondAttribute"].value,hash["firstAttribute"].value if arabic
+  hash["firstItem"].value, hash["secondItem"].value = hash["secondItem"].value,hash["firstItem"].value if rtl
+  hash["firstAttribute"].value, hash["secondAttribute"].value = hash["secondAttribute"].value,hash["firstAttribute"].value if rtl
 end
 
-def translate_layout (arabic)
+def translate_layout (file_path, rtl, output)
 
-  file_path = "/Users/omar/Documents/iOS/BBB/POC/POC/Base.lproj/Main.storyboard"
   file_name = File.basename(file_path)
   file_name.slice! File.extname(file_path)
-  file_english = "%s/%s.en.storyboard"% [File.dirname(File.dirname(file_path)), file_name]
-  file_arabic = "%s/%s.ar.storyboard"% [File.dirname(File.dirname(file_path)), file_name]
+  base_name = File.dirname(File.dirname(file_path))
+
+  if output.nil?
+    output = "%s/%s.%s.storyboard"% [base_name , rtl ? "ar" : "en", file_name]
+  end
 
   story_content = File.read(file_path)
   doc  = Nokogiri::XML(story_content)
@@ -66,14 +69,37 @@ def translate_layout (arabic)
   p "We have only #{constrants.count} items"
 
   constrants.each do |item|
-
-    fix_attributes(item.attributes, arabic)
+    fix_attributes(item.attributes, rtl)
   end
 
-  p arabic ? file_arabic : file_english
-  File.open(arabic ? file_arabic : file_english,'w') {|f| doc.write_xml_to f}
-
+  p output
+  File.open(output, 'w') {|f| doc.write_xml_to f}
 end
 
-translate_layout false
-translate_layout true
+options = {}
+
+opt_parser = OptionParser.new do |opt|
+  opt.banner = "Usage: translate_layout File [OPTIONS]"
+  opt.separator  ""
+  opt.separator  "Options"
+
+  opt.on("-l", "--ltr", "Left to right") { options["right_to_left"] = false }
+
+  opt.on("-r", "--rtl", "Right to left") { options["right_to_left"] = true }
+
+  opt.on("-o destination", "--output destination", "output destination") do |level|
+    options["output"] = level
+  end
+end
+
+begin
+  opt_parser.parse!
+rescue Exception => e
+  puts e
+end
+
+if ARGV.length > 0 && !options.empty?
+  translate_layout ARGV[0], options["right_to_left"], options["output"]
+else
+  puts opt_parser
+end
