@@ -1,5 +1,7 @@
 #!/bin/ruby
-require "nokogiri"
+require 'rubygems'
+require 'bundler/setup'
+require 'nokogiri'
 require 'pathname'
 require 'optparse'
 
